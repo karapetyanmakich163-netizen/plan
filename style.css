@@ -1,0 +1,72 @@
+/* ===== Colors (dark mode just swaps these variables) ===== */
+:root{--bg:#f3f4f8;--card:rgba(255,255,255,.82);--tx:#1c1c28;--mut:#777;--ac:#5b4bdb;--bd:#e2e3ee}
+body.dark{--bg:#12121a;--card:rgba(34,34,50,.82);--tx:#eee;--mut:#9a9ab0;--bd:#2f2f44}
+*{box-sizing:border-box;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+body{margin:0;background:var(--bg);color:var(--tx);display:flex;min-height:100vh;transition:background .3s}
+
+/* ===== Layout ===== */
+#nav{width:220px;padding:16px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px;overflow:auto;border-right:1px solid var(--bd)}
+#nav a{display:flex;gap:10px;padding:10px 12px;border-radius:12px;cursor:pointer;transition:.2s}
+#nav a:hover{background:var(--bd)}
+#nav a.on{background:var(--ac);color:#fff}
+#nav em{font-style:normal}
+main{flex:1;padding:20px;max-width:900px;margin:auto;width:100%}
+header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+header h1{flex:1;margin:0;font-size:26px}
+#clock{color:var(--mut);font-variant-numeric:tabular-nums}
+
+/* ===== Cards, buttons, inputs ===== */
+.card{background:var(--card);backdrop-filter:blur(12px);border:1px solid var(--bd);border-radius:18px;padding:14px;margin-bottom:10px}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:12px;padding:9px 14px;cursor:pointer;font-size:14px;display:inline-block}
+.btn.ghost{background:transparent;color:var(--tx);border:1px solid var(--bd)}
+.btn.danger{background:#d64545}
+input,select,textarea{width:100%;padding:9px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);margin:4px 0 10px;font-size:15px}
+input[type=checkbox]{width:auto}
+label{display:block;font-size:13px;color:var(--mut)}
+.item{display:flex;align-items:center;gap:8px}
+.item.done b{text-decoration:line-through;opacity:.5}
+.item button{background:none;border:0;cursor:pointer;font-size:16px}
+.grow{flex:1;min-width:0}
+small{display:block;color:var(--mut)}
+.empty{text-align:center;color:var(--mut);padding:30px}
+.row{display:flex;gap:8px;align-items:center;justify-content:flex-end}
+label.row{justify-content:space-between;color:var(--tx)}
+.row input{margin:0}
+.grid{display:flex;flex-wrap:wrap;gap:8px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stats .card{text-align:center;font-size:18px}
+
+/* ===== Progress bars and charts ===== */
+.bar{height:8px;background:var(--bd);border-radius:9px;overflow:hidden;margin:6px 0}
+.bar i{display:block;height:100%;background:var(--ac);transition:width .4s}
+.hb{display:grid;grid-template-columns:100px 1fr 50px;gap:8px;align-items:center;font-size:13px}
+.hb i{height:10px;background:var(--ac);border-radius:6px;transition:width .4s}
+
+/* ===== Messages ===== */
+.chat{display:grid;grid-template-columns:200px 1fr;gap:10px}
+.ct{padding:8px;border-radius:10px;cursor:pointer;display:flex;gap:8px;align-items:center}
+.ct.on{background:var(--bd)}
+.av{background:var(--ac);color:#fff;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:none}
+.msgs{min-height:220px}
+.bubble{background:var(--ac);color:#fff;padding:8px 12px;border-radius:16px 16px 4px 16px;margin:6px 0 6px auto;width:fit-content;max-width:80%}
+.bubble small{color:#ffffffb0}
+.bubble a{cursor:pointer}
+
+/* ===== Modal and toast ===== */
+.modal{position:fixed;inset:0;background:#0007;display:grid;place-items:center;z-index:9;padding:14px}
+.modal.hidden{display:none}
+.box{background:var(--bg);border-radius:20px;padding:20px;width:100%;max-width:420px;max-height:90vh;overflow:auto;animation:pop .2s}
+@keyframes pop{from{transform:scale(.94);opacity:0}}
+.err{color:#d64545;min-height:18px;margin:0 0 8px;font-size:14px}
+#toast{position:fixed;top:16px;left:50%;transform:translate(-50%,-90px);background:var(--ac);color:#fff;padding:12px 18px;border-radius:14px;z-index:10;transition:transform .3s}
+#toast.show{transform:translate(-50%,0)}
+
+/* ===== Mobile: sidebar becomes a bottom bar ===== */
+@media(max-width:700px){
+  body{display:block}
+  #nav{position:fixed;top:auto;bottom:0;left:0;right:0;width:100%;height:auto;flex-direction:row;overflow-x:auto;border:0;border-top:1px solid var(--bd);background:var(--card);backdrop-filter:blur(14px);z-index:5;padding:6px}
+  #nav a{flex-direction:column;align-items:center;font-size:10px;flex:0 0 auto;padding:6px 10px}
+  main{padding:14px 14px 90px}
+  .chat{grid-template-columns:1fr}
+}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
