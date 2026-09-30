@@ -64,6 +64,15 @@ label.row{justify-content:space-between;color:var(--tx)}
 #toast{position:fixed;top:16px;left:50%;transform:translate(-50%,-90px);background:var(--ac);color:#fff;padding:12px 18px;border-radius:14px;z-index:10;transition:transform .3s}
 #toast.show{transform:translate(-50%,0)}
 
+.tm{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px}
+.tm label{width:84px;text-align:center}
+.ringbox{position:relative;width:min(86vw,380px);margin:14px auto}
+.ringbox svg{width:100%;transform:rotate(-90deg)}
+.rbg{fill:none;stroke:var(--bd);stroke-width:10}
+.rfg{fill:none;stroke:var(--ac);stroke-width:10;stroke-linecap:round;stroke-dasharray:565;transition:stroke-dashoffset .3s linear}
+#cd{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(44px,13vw,76px);font-weight:700;font-variant-numeric:tabular-nums}
+#cdcard:fullscreen,#cdcard:-webkit-full-screen{background:var(--bg);display:flex;flex-direction:column;justify-content:center;align-items:center}
+#cdcard:fullscreen .ringbox{width:min(75vh,85vw)}#cdcard:fullscreen #cd{font-size:clamp(60px,14vw,160px)}
 /* ===== Mobile: sidebar becomes a bottom bar ===== */
 @media(max-width:700px){
   body{display:block}
@@ -92,7 +101,7 @@ const saveSettings = () => localStorage.setItem('settings', JSON.stringify(setti
 const $ = s => document.querySelector(s);
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const findItem = (k, id) => db[k].findItem(i => i.id === id);
+const findItem = (k, id) => db[k].find(i => i.id === id);
 const sum = a => a.reduce((s, x) => s + (+x || 0), 0);
 const todayStr = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
 let view = 'home', chat = null, q = '';
@@ -201,13 +210,34 @@ function sendMsg(e) {
   if (!text) return toast('Please write a message.');
   addMsg(chat, text); render();
 }
+// Opens the real app (mail, SMS, WhatsApp, Telegram, Viber) with the text prefilled.
+// Nothing is sent from here: you press Send inside that app.
+function shareMsg(app) {
+  const c = findItem('contacts', chat);
+  if (!c) return toast('Add a contact first');
+  const inp = $('#mi').value.trim(), last = db.messages.filter(m => m.to === chat).pop();
+  const text = inp || (last && last.text);
+  if (!text) return toast('Please write a message.');
+  const tel = (c.phone || '').replace(/\D/g, ''), t = encodeURIComponent(text);
+  const urls = {
+    mail: c.email && `mailto:${c.email}?subject=&body=${t}`,
+    sms: tel && `sms:${c.phone.replace(/\s/g, '')}?&body=${t}`,
+    whatsapp: tel && `https://wa.me/${tel}?text=${t}`,
+    telegram: `https://t.me/share/url?url=%20&text=${t}`,
+    viber: `viber://forward?text=${t}`
+  };
+  const url = urls[app];
+  if (!url) return toast(app === 'mail' ? 'This contact has no email.' : 'This contact has no phone number.');
+  if (url.startsWith('http')) window.open(url, '_blank'); else location.href = url;
+  if (inp) { addMsg(chat, inp); $('#mi').value = ''; render(); }
+}
 function delMsg(id) { db.messages = db.messages.filter(m => m.id !== id); saveKey('messages'); render(); }
 function msgView() {
   if (!findItem('contacts', chat) && db.contacts.length) chat = db.contacts[0].id;
   const ms = db.messages.filter(m => m.to === chat);
   return `<div class="chat"><div class="card">${db.contacts.map(c => `<div class="ct ${c.id === chat ? 'on' : ''}" onclick="chat='${c.id}';render()"><span class="av">${esc(c.name[0])}</span>${esc(c.name)}</div>`).join('') || `<p class="empty">${tr('empty')}</p>`}<button class="btn" onclick="openForm('contacts')">＋ ${tr('contacts')}</button></div>
   <div class="card"><div class="msgs">${ms.map(m => `<div class="bubble">${esc(m.text)}<small>${m.status} · ${new Date(m.time).toLocaleTimeString()} <a onclick="delMsg('${m.id}')">🗑</a></small></div>`).join('')}</div>
-  <form onsubmit="sendMsg(event)" class="row"><input id="mi" placeholder="${tr('messages')}…"><button class="btn">➤</button></form></div></div>`;
+  <form onsubmit="sendMsg(event)" class="row"><input id="mi" placeholder="${tr('messages')}…"><button class="btn">➤</button></form><div class="tm"><button class="btn ghost" onclick="shareMsg('mail')">📧 Email</button><button class="btn ghost" onclick="shareMsg('sms')">💬 SMS</button><button class="btn ghost" onclick="shareMsg('whatsapp')">WhatsApp</button><button class="btn ghost" onclick="shareMsg('telegram')">Telegram</button><button class="btn ghost" onclick="shareMsg('viber')">Viber</button></div></div></div>`;
 }
 
 /* ================= GENERIC LIST VIEW ================= */
@@ -261,18 +291,43 @@ function swToggle() {
   const start = Date.now() - sw.t;
   sw.id = setInterval(() => { sw.t = Date.now() - start; const e = $('#swd'); if (e) e.textContent = fmt(sw.t); }, 100);
 }
-function cdStart() {
-  const min = +$('#cm').value;
-  if (!(min > 0)) return toast('Please enter a valid amount.');
-  const end = Date.now() + min * 60000; clearInterval(cdId);
-  cdId = setInterval(() => {
-    const left = end - Date.now(), e = $('#cd');
-    if (left <= 0) { clearInterval(cdId); toast('⏰ Time is up!'); if (e) e.textContent = '00:00'; return; }
-    if (e) e.textContent = fmt(left).slice(0, 5);
-  }, 250);
+// ---- Big countdown timer: hours / minutes / seconds, pause, reset, fullscreen ----
+let cd = { total: 0, left: 0, end: 0, id: 0 };
+const hms = ms => { const s = Math.ceil(ms / 1000), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return (h ? String(h).padStart(2, '0') + ':' : '') + String(m).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0'); };
+function cdPaint() {
+  const e = $('#cd'); if (!e) return;
+  e.textContent = cd.left ? hms(cd.left) : '00:00';
+  const r = $('#ring'); if (r) r.style.strokeDashoffset = 565 * (1 - (cd.total ? cd.left / cd.total : 0));
+  const b = $('#cgo'); if (b) b.textContent = cd.id ? '⏸' : '▶';
 }
+function cdReset() { clearInterval(cd.id); cd.id = 0; cd.total = cd.left = 0; cdPaint(); }
+function cdSet(sec) {                       // preset buttons
+  cdReset(); $('#ch').value = Math.floor(sec / 3600); $('#cm').value = Math.floor(sec % 3600 / 60); $('#cs').value = sec % 60;
+}
+function beep() { try { const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(); o.connect(a.destination); o.frequency.value = 880; o.start(); setTimeout(() => o.stop(), 900); if (navigator.vibrate) navigator.vibrate(400); } catch (e) {} }
+function cdToggle() {
+  if (cd.id) { clearInterval(cd.id); cd.id = 0; cd.left = cd.end - Date.now(); cdPaint(); return; }   // pause
+  if (!cd.left) {
+    const s = (+$('#ch').value || 0) * 3600 + (+$('#cm').value || 0) * 60 + (+$('#cs').value || 0);
+    if (!(s > 0)) return toast('Please enter a valid amount.');
+    cd.total = cd.left = s * 1000;
+  }
+  cd.end = Date.now() + cd.left;
+  cd.id = setInterval(() => {
+    cd.left = cd.end - Date.now();
+    if (cd.left <= 0) { cdReset(); toast('⏰ Time is up!'); beep(); return; }
+    cdPaint();
+  }, 200);
+  cdPaint();
+}
+function cdFull() { const c = $('#cdcard'); (c.requestFullscreen || c.webkitRequestFullscreen || (() => toast('Fullscreen is not supported here'))).call(c); }
+
 const tools = () => `<div class="card"><h3>⏱ Stopwatch</h3><h1 id="swd">${fmt(sw.t)}</h1><button class="btn" onclick="swToggle()">Start / Stop</button> <button class="btn ghost" onclick="sw.t=0;$('#swd').textContent=fmt(0)">Reset</button></div>
-<div class="card"><h3>⏳ Countdown</h3><label>Minutes<input id="cm" type="number" min="1" value="5"></label><h1 id="cd">--:--</h1><button class="btn" onclick="cdStart()">Start</button></div>`;
+<div class="card" id="cdcard"><h3>⏳ Timer</h3>
+<div class="tm"><label>Hours<input id="ch" type="number" min="0" value="0" oninput="cdReset()"></label><label>Minutes<input id="cm" type="number" min="0" value="25" oninput="cdReset()"></label><label>Seconds<input id="cs" type="number" min="0" value="0" oninput="cdReset()"></label></div>
+<div class="tm"><button class="btn ghost" onclick="cdSet(300)">5 min</button><button class="btn ghost" onclick="cdSet(900)">15 min</button><button class="btn ghost" onclick="cdSet(1500)">25 min</button><button class="btn ghost" onclick="cdSet(3600)">1 h</button></div>
+<div class="ringbox"><svg viewBox="0 0 200 200"><circle class="rbg" cx="100" cy="100" r="90"/><circle id="ring" class="rfg" cx="100" cy="100" r="90" style="stroke-dashoffset:${565 * (1 - (cd.total ? cd.left / cd.total : 0))}"/></svg><div id="cd">${cd.left ? hms(cd.left) : '00:00'}</div></div>
+<div class="tm"><button class="btn" id="cgo" onclick="cdToggle()">${cd.id ? '⏸' : '▶'}</button><button class="btn ghost" onclick="cdReset()">↺</button><button class="btn ghost" onclick="cdFull()">⛶</button></div></div>`;
 
 /* ================= SETTINGS ================= */
 function setView() {
