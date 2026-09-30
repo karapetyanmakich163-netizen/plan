@@ -125,17 +125,21 @@ const M = {
 // Shows a form; onSave(form) returns an error string or nothing.
 function modal(html, onSave, ok) {
   const m = $('#modal');
-  m.innerHTML = `<form class="box">${html}<div class="row"><button type="button" class="btn ghost" id="cx">${tr('cancel')}</button><button class="btn">${ok || tr('save')}</button></div></form>`;
+  m.innerHTML = `<form class="box" novalidate>${html}<div class="row"><button type="button" class="btn ghost" id="cx">${tr('cancel')}</button><button type="button" class="btn" id="sv">${ok || tr('save')}</button></div></form>`;
   m.classList.remove('hidden');
   const f = m.firstChild;
-  m.onclick = e => e.target === m && closeModal();
+  m.onclick = e => { if (e.target === m) closeModal(); };
   $('#cx').onclick = closeModal;
-  f.onsubmit = e => {
-    e.preventDefault();
-    const err = onSave(f);
-    if (err) { f.querySelector('.err').textContent = err; return; }
-    closeModal(); render();
+  // Save runs inside try/catch so any problem is shown instead of silently failing
+  const submit = () => {
+    let err;
+    try { err = onSave(f); } catch (ex) { err = 'Error: ' + ex.message; }
+    if (err) { const box = f.querySelector('.err'); if (box) box.textContent = err; else toast(err); return; }
+    closeModal();
+    try { render(); } catch (ex) { toast('Error: ' + ex.message); }
   };
+  $('#sv').onclick = submit;
+  f.onsubmit = ev => { ev.preventDefault(); submit(); };
 }
 const closeModal = () => $('#modal').classList.add('hidden');
 function toast(s) { const t = $('#toast'); t.textContent = s; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); }
