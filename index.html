@@ -25,7 +25,7 @@ header h1{flex:1;margin:0;font-size:26px}
 .btn.danger{background:#d64545}
 input,select,textarea{width:100%;padding:9px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx);margin:4px 0 10px;font-size:15px}
 input[type=checkbox]{width:auto}
-label{display:block;font-size:13px;color:var(--mut)}
+label{text-transform:capitalize;display:block;font-size:13px;color:var(--mut)}
 .item{display:flex;align-items:center;gap:8px}
 .item.done b{text-decoration:line-through;opacity:.5}
 .item button{background:none;border:0;cursor:pointer;font-size:16px}
@@ -90,7 +90,7 @@ label.row{justify-content:space-between;color:var(--tx)}
 <script>
 /* ================= STORAGE ================= */
 // Every list lives in LocalStorage under its own key.
-const KEYS = ['tasks','notes','contacts','messages','reminders','shopping','expenses','goals'];
+const KEYS = ['tasks','notes','contacts','messages','reminders','shopping','expenses','goals','parcels'];
 const db = {};
 KEYS.forEach(k => db[k] = JSON.parse(localStorage.getItem(k) || '[]'));
 let settings = JSON.parse(localStorage.getItem('settings') || '{"dark":false,"lang":"en","h24":true}');
@@ -108,11 +108,11 @@ let view = 'home', chat = null, q = '';
 
 /* ================= TRANSLATIONS ================= */
 // Values are listed in the same order as the keys in K.
-const K = 'home,tasks,notes,messages,contacts,reminders,shopping,expenses,goals,tools,settings,save,cancel,empty,sure,hello,dark,lang,export,import,reset,title,date,due,priority,amount,name,phone,time,price'.split(',');
+const K = 'home,tasks,notes,messages,contacts,reminders,shopping,expenses,goals,tools,settings,save,cancel,empty,sure,hello,dark,lang,export,import,reset,title,date,due,priority,amount,name,phone,time,price,parcels'.split(',');
 const L = {
-  en: 'Home|Tasks|Notes|Messages|Contacts|Reminders|Shopping|Money|Goals|Tools|Settings|Save|Cancel|Nothing here yet|Are you sure?|Hello|Dark mode|Language|Export my data|Import data|Delete all data|Title|Date|Due|Priority|Amount|Name|Phone|Time|Price',
-  hy: 'Գլխավոր|Առաջադրանքներ|Նշումներ|Հաղորդագրություններ|Կոնտակտներ|Հիշեցումներ|Գնումներ|Ֆինանսներ|Նպատակներ|Գործիքներ|Կարգավորումներ|Պահպանել|Չեղարկել|Դեռ ոչինչ չկա|Համոզվա՞ծ եք|Բարև|Մութ ռեժիմ|Լեզու|Արտահանել տվյալները|Ներմուծել տվյալներ|Ջնջել բոլոր տվյալները|Վերնագիր|Ամսաթիվ|Ժամկետ|Առաջնահերթություն|Գումար|Անուն|Հեռախոս|Ժամ|Գին',
-  ru: 'Главная|Задачи|Заметки|Сообщения|Контакты|Напоминания|Покупки|Финансы|Цели|Инструменты|Настройки|Сохранить|Отмена|Пока ничего нет|Вы уверены?|Привет|Тёмная тема|Язык|Экспорт данных|Импорт данных|Удалить все данные|Название|Дата|Срок|Приоритет|Сумма|Имя|Телефон|Время|Цена'
+  en: 'Home|Tasks|Notes|Messages|Contacts|Reminders|Shopping|Money|Goals|Tools|Settings|Save|Cancel|Nothing here yet|Are you sure?|Hello|Dark mode|Language|Export my data|Import data|Delete all data|Title|Date|Due|Priority|Amount|Name|Phone|Time|Price|Parcels',
+  hy: 'Գլխավոր|Առաջադրանքներ|Նշումներ|Հաղորդագրություններ|Կոնտակտներ|Հիշեցումներ|Գնումներ|Ֆինանսներ|Նպատակներ|Գործիքներ|Կարգավորումներ|Պահպանել|Չեղարկել|Դեռ ոչինչ չկա|Համոզվա՞ծ եք|Բարև|Մութ ռեժիմ|Լեզու|Արտահանել տվյալները|Ներմուծել տվյալներ|Ջնջել բոլոր տվյալները|Վերնագիր|Ամսաթիվ|Ժամկետ|Առաջնահերթություն|Գումար|Անուն|Հեռախոս|Ժամ|Գին|Ծանրոցներ',
+  ru: 'Главная|Задачи|Заметки|Сообщения|Контакты|Напоминания|Покупки|Финансы|Цели|Инструменты|Настройки|Сохранить|Отмена|Пока ничего нет|Вы уверены?|Привет|Тёмная тема|Язык|Экспорт данных|Импорт данных|Удалить все данные|Название|Дата|Срок|Приоритет|Сумма|Имя|Телефон|Время|Цена|Посылки'
 };
 const tr = k => { const i = K.indexOf(k); return i < 0 ? k : L[settings.lang].split('|')[i]; };
 
@@ -125,6 +125,7 @@ const M = {
   contacts:{f:[['name','text',0,1],['phone','text'],['email','text'],['birthday','date']],t:i=>i.name,sub:i=>[i.phone,i.email].filter(Boolean).join(' · '),msg:1},
   reminders:{f:[['title','text',0,1],['date','date'],['time','time']],sub:i=>[i.date,i.time].join(' ')},
   shopping:{f:[['title','text',0,1],['qty','number'],['price','number']],check:1,sub:i=>`${i.qty||1} × ${i.price||0}`},
+  parcels:{f:[['title','text',0,1],['number','text',0,1],['status','select',['Ordered','In warehouse','In transit','Arrived in Armenia','Picked up']]],track:1,sub:i=>`${i.number} · ${i.status}`},
   goals:{f:[['title','text',0,1],['deadline','date'],['progress','number']],goal:1,sub:i=>i.deadline||''},
   expenses:{f:[['type','select',['Expense','Income']],['amount','number',0,1],['category','select',['Food','Transport','Shopping','Education','Entertainment','Other']],['desc','text'],['date','date']],
     t:i=>`${i.type==='Income'?'+':'−'}${i.amount} · ${i.category}`,sub:i=>[i.desc,i.date].filter(Boolean).join(' · ')}
@@ -231,6 +232,14 @@ function shareMsg(app) {
   if (url.startsWith('http')) window.open(url, '_blank'); else location.href = url;
   if (inp) { addMsg(chat, inp); $('#mi').value = ''; render(); }
 }
+// Parcels: the app cannot read Onex's live data itself (no public API),
+// so "Track" copies the number and gives links to tracking pages.
+function copyNum(id) { const n = findItem('parcels', id).number; if (navigator.clipboard) navigator.clipboard.writeText(n); toast('Number copied'); }
+function track(id) {
+  const p = findItem('parcels', id), n = encodeURIComponent(p.number);
+  modal(`<h2>📍 ${esc(p.title)}</h2><p><b>${esc(p.number)}</b></p><p><a class="btn" target="_blank" href="https://onex.am/en/onextrack" onclick="copyNum('${id}')">Onex Track</a> <a class="btn ghost" target="_blank" href="https://t.17track.net/en#nums=${n}">17TRACK</a></p><small>The number is copied when you open Onex Track (no login needed). Paste it in the search box.</small>`,
+    () => { if (navigator.clipboard) navigator.clipboard.writeText(p.number); toast('Number copied'); }, 'Copy number');
+}
 function delMsg(id) { db.messages = db.messages.filter(m => m.id !== id); saveKey('messages'); render(); }
 function msgView() {
   if (!findItem('contacts', chat) && db.contacts.length) chat = db.contacts[0].id;
@@ -251,6 +260,7 @@ function listItems(k) {
     <div class="grow"><b>${esc(title(i))}</b><small>${esc(m.sub ? m.sub(i) : '')}</small>
       ${m.goal ? `<div class="bar"><i style="width:${+i.progress || 0}%"></i></div>` : ''}</div>
     ${m.goal ? `<button onclick="step('${i.id}',-10)">−</button><small>${+i.progress || 0}%</small><button onclick="step('${i.id}',10)">＋</button>` : ''}
+    ${m.track ? `<button onclick="track('${i.id}')">📍</button>` : ''}
     ${m.msg ? `<button onclick="openMsg('${i.id}')">✉️</button>` : ''}
     <button onclick="openForm('${k}',findItem('${k}','${i.id}'))">✏️</button>
     <button onclick="del('${k}','${i.id}')">🗑</button></div>`).join('');
@@ -353,7 +363,7 @@ function importData(e) {
 function resetAll() { modal(`<p>${tr('sure')}</p>`, () => { localStorage.clear(); location.reload(); }, '🗑'); }
 
 /* ================= NAVIGATION + RENDER ================= */
-const NAV = [['home','🏠'],['tasks','✅'],['messages','✉️'],['notes','📝'],['reminders','🔔'],['expenses','💰'],['shopping','🛒'],['contacts','👤'],['goals','🎯'],['tools','⏱'],['settings','⚙️']];
+const NAV = [['home','🏠'],['tasks','✅'],['messages','✉️'],['notes','📝'],['reminders','🔔'],['expenses','💰'],['shopping','🛒'],['parcels','📦'],['contacts','👤'],['goals','🎯'],['tools','⏱'],['settings','⚙️']];
 const V = { home, messages: msgView, tools, settings: setView };
 function go(k) { view = k; q = ''; render(); }
 function render() {
@@ -381,5 +391,4 @@ document.onkeydown = e => {
 tick(); render();
 
 window.onerror=(m)=>toast('Error: '+m);
-
 </script></body></html>
